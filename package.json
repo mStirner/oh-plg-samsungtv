@@ -1,0 +1,25 @@
+{
+  "name": "oh-plg-samsungtv",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "bundle": "grunt compress"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mStirner/oh-plg-samsungtv.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mStirner/oh-plg-samsungtv/issues"
+  },
+  "homepage": "https://github.com/mStirner/oh-plg-samsungtv#readme",
+  "devDependencies": {
+    "grunt": "^1.5.3",
+    "grunt-contrib-compress": "^2.0.0",
+    "grunt-env": "^1.0.1"
+  }
+}
