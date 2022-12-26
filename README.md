@@ -109,3 +109,5 @@ The changes made in the plugin source code, should trigger a automatically backe
 - https://github.com/McKael/samtv
 - https://stackoverflow.com/q/74888856/5781499
 - https://stackoverflow.com/a/74890161/5781499
+- https://github.com/roberodin/ha-samsungtv-custom
+- https://github.com/tdudek/samsung-remote-models-2014-and-newer
