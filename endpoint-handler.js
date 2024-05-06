@@ -120,6 +120,12 @@ module.exports = (logger, [
                     return Buffer.concat([cipher.update(val, 'utf8'), cipher.final()]);
                 });
 
+                const aesDecrypt = ((val, algo = "aes-128-ecb") => {
+                    let decipher = crypto.createDecipheriv(algo, Buffer.from(SESSION_KEY, 'hex'), null);
+                    return Buffer.concat([decipher.update(val), decipher.final()]);
+                });
+
+
                 let ifaceHTTP = device.interfaces.find(({ settings: { port }, description }) => {
                     return port === 8000 && description === "SmartView HTTP API";
                 });
@@ -166,7 +172,38 @@ module.exports = (logger, [
                             };
 
                             ws.send(`5::/com.samsung.companion:${JSON.stringify(wrapper)}`, (err) => {
-                                done(err, true);
+                                if (err) {
+
+                                    done(err, true);
+
+                                } else {
+
+                                    ws.once("message", (msg) => {
+                                        try {
+
+                                            msg = msg.toString();
+                                            let prefix = "5::/com.samsung.companion:";
+
+                                            if (msg.startsWith(prefix)) {
+
+                                                let success = '{"plugin":"RemoteControl","api":"SendRemoteKey","result":{}}';
+                                                let json = JSON.parse(msg.substring(prefix.length));
+                                                let data = Buffer.from(JSON.parse(json.args));
+
+                                                done(null, aesDecrypt(data).toString() === success);
+
+                                            } else {
+
+                                                done(null, false);
+
+                                            }
+
+                                        } catch (err) {
+                                            done(err, false);
+                                        }
+                                    });
+
+                                }
                             });
 
 

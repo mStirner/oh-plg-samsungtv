@@ -9,12 +9,12 @@ module.exports = (ifaceHTTP, ifaceWS, complete) => {
 
             new Promise((resolve) => {
                 ifaceHTTP.once("attached", resolve);
-                ifaceHTTP.once("close", redo);
+                //ifaceHTTP.once("detached", redo);
             }),
 
             new Promise((resolve) => {
                 ifaceWS.once("attached", resolve);
-                ifaceWS.once("close", redo);
+                //ifaceWS.once("detached", redo);
             }),
 
         ]).then(async () => {
