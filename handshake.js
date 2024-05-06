@@ -1,42 +1,58 @@
 const WebSocket = require("ws");
 
 const request = require("../../helper/request.js");
+const infinity = require("../../helper/infinity.js");
 
-module.exports = (iface, complete) => {
+module.exports = (ifaceHTTP, ifaceWS, complete) => {
+    infinity((redo) => {
+        Promise.all([
 
-    let { host, port } = iface.settings;
-   
-    
-    iface.on("attached", () => {
+            new Promise((resolve) => {
+                ifaceHTTP.once("attached", resolve);
+                ifaceHTTP.once("close", redo);
+            }),
 
-        console.log("iface attacehd");
-        let agent = iface.httpAgent({}, "http");
-        request(`http://${host}:${port}/socket.io/1/?t=${Date.now()}`, {
-            agent
-        }, (err, result) => {
-            if (err) {
+            new Promise((resolve) => {
+                ifaceWS.once("attached", resolve);
+                ifaceWS.once("close", redo);
+            }),
 
-                console.error(err);
-                process.exit(1);
+        ]).then(async () => {
 
-            } else {
+            // receive websocket handshake
+            new Promise((resolve, reject) => {
 
-                let start = null;
-                let wsp = result.body.toString().split(":")[0];
+                let agent = ifaceHTTP.httpAgent();
+                let { host, port } = ifaceHTTP.settings;
 
-                console.log("WS GET", wsp)
-                let agent = iface.httpAgent({}, "ws");
+                request(`http://${host}:${port}/socket.io/1/?t=${Date.now()}`, {
+                    agent
+                }, (err, result) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(result.body.toString().split(":")[0]);
+                    }
+                });
+
+            }, redo).then((wsp) => {
+
+
+                let agent = ifaceWS.httpAgent();
+                let { host, port } = ifaceWS.settings;
+
                 let ws = new WebSocket(`ws://${host}:${port}/socket.io/1/websocket/${wsp}`, {
                     agent
                 });
 
                 ws.on("error", (err) => {
                     console.log("Handhsake error", err);
-                    process.exit(123);
+                    redo();
                 });
 
                 ws.on("close", () => {
                     console.log("Disconnected from ", ws.url, "Duration: ", Date.now() - start);
+                    redo();
                 });
 
                 ws.on("open", () => {
@@ -60,7 +76,6 @@ module.exports = (iface, complete) => {
                         // received hello from tv
                         // handshake completed
                         console.log("Handshake completed");
-                        start = Date.now();
                         complete(ws);
 
                     } else if (str === "2::") {
@@ -78,9 +93,14 @@ module.exports = (iface, complete) => {
 
                 });
 
-            }
+            });
+
+        }).catch((err) => {
+
+            console.error(err);
+
+            redo();
+
         });
-
-    });
-
+    }, 5000);
 };

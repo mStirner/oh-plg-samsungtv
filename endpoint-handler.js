@@ -120,11 +120,15 @@ module.exports = (logger, [
                     return Buffer.concat([cipher.update(val, 'utf8'), cipher.final()]);
                 });
 
-                let iface = device.interfaces.find(({ settings: { port } }) => {
-                    return port === 8000;
+                let ifaceHTTP = device.interfaces.find(({ settings: { port }, description }) => {
+                    return port === 8000 && description === "SmartView HTTP API";
                 });
 
-                handshake(iface, (ws) => {
+                let ifaceWS = device.interfaces.find(({ settings: { port }, description }) => {
+                    return port === 8000 && description === "SmartView WS API";
+                });
+
+                handshake(ifaceHTTP, ifaceWS, (ws) => {
 
                     console.log("Handshake complete");
                     console.log("Setup command hanlder")

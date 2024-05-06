@@ -40,7 +40,19 @@ module.exports = (logger, [
                         mac: "5c:49:7d:21:14:27"
                     },
                     type: "ETHERNET",
-                    description: "SmartView API",
+                    description: "SmartView HTTP API",
+                    adapter: [
+                        "raw"
+                    ]
+                }, {
+                    settings: {
+                        host: "192.168.2.100",
+                        port: 8000,
+                        socket: "tcp",
+                        mac: "5c:49:7d:21:14:27"
+                    },
+                    type: "ETHERNET",
+                    description: "SmartView WS API",
                     adapter: [
                         "raw"
                     ]
