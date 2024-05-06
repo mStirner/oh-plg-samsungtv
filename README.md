@@ -17,7 +17,10 @@ It depends on the externel pairing functionality of:
 Pairing is coming soon!<br />
 A "working-on" port to node.js can be found here: https://github.com/mStirner/samtv-remote
 
-Special thanks to [@sectroyer](https://github.com/sectroyer) & [@McKael](https://github.com/McKael) for their incredible and awesome work!
+Special thanks to [@sectroyer](https://github.com/sectroyer), [@McKael](https://github.com/McKael) & [@tdudek](https://github.com/tdudek) for their incredible and awesome work!
+
+> [!NOTE]  
+> After configuring (pairing & setting secrets), the plugin needs to be restarted
 
 ## Development
 Create a new plugin over the HTTP API:<br />
