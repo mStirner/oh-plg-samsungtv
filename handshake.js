@@ -4,15 +4,13 @@ const request = require("../../helper/request.js");
 
 module.exports = (iface, complete) => {
 
-    console.log(iface)
-
     let { host, port } = iface.settings;
-    let agent = iface.httpAgent();
-
+   
+    
     iface.on("attached", () => {
 
         console.log("iface attacehd");
-
+        let agent = iface.httpAgent({}, "http");
         request(`http://${host}:${port}/socket.io/1/?t=${Date.now()}`, {
             agent
         }, (err, result) => {
@@ -27,9 +25,14 @@ module.exports = (iface, complete) => {
                 let wsp = result.body.toString().split(":")[0];
 
                 console.log("WS GET", wsp)
-
+                let agent = iface.httpAgent({}, "ws");
                 let ws = new WebSocket(`ws://${host}:${port}/socket.io/1/websocket/${wsp}`, {
                     agent
+                });
+
+                ws.on("error", (err) => {
+                    console.log("Handhsake error", err);
+                    process.exit(123);
                 });
 
                 ws.on("close", () => {
@@ -56,7 +59,7 @@ module.exports = (iface, complete) => {
 
                         // received hello from tv
                         // handshake completed
-                        console.log("Handshake complete");
+                        console.log("Handshake completed");
                         start = Date.now();
                         complete(ws);
 

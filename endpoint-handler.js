@@ -3,106 +3,188 @@ const crypto = require("crypto");
 const handshake = require("./handshake.js");
 
 const UUID = "samtv";
-var SESSION_ID = null;
-var SESSION_KEY = null;
+//var SESSION_ID = null;
+//var SESSION_KEY = null;
 
-var aesEncrypt = ((val, algo = "aes-128-ecb") => {
-    let cipher = crypto.createCipheriv(algo, SESSION_KEY, null);
-    return Buffer.concat([cipher.update(val, 'utf8'), cipher.final()]);
-});
+
 
 module.exports = (logger, [
-    C_DEVICES,
+    device,
     C_ENDPOINTS,
     C_VAULT
 ]) => {
 
-    C_DEVICES.found({
-        meta: {
-            manufacturer: "samsung",
-            model: "UE60J6289"
-        }
-    }, (device) => {
+    C_ENDPOINTS.found({
+        device: device._id
+    }, async (endpoint) => {
 
-        C_ENDPOINTS.found({
-            device: device._id
-        }, async (endpoint) => {
+        C_VAULT.found({
+            labels: [
+                `endpoint=${endpoint._id}`,
+                `device=${device._id}`,
+                "samsung=true",
+                "tv=true"
+            ]
+        }, (vault) => {
 
-            let vault = await C_VAULT.items.find((vault) => {
-                return vault.identifier === endpoint._id;
+            /*
+            let vault = await C_VAULT.find({
+                labels: [
+                    `endpoint=${endpoint._id}`,
+                    `device=${device._id}`,
+                    "samsung=true",
+                    "tv=true"
+                ]
             });
+            */
 
-            console.log(vault)
+            let changes = vault.changes();
 
-            let key = vault.secrets.find(({ key }) => {
-                return key === "session_key";
-            });
+            Promise.all([
 
-            let id = vault.secrets.find(({ key }) => {
-                return key === "session_id";
-            });
+                new Promise((resolve) => {
 
-            SESSION_KEY = Buffer.from(key.decrypt(), "hex");
-            SESSION_ID = id.decrypt();
+                    // TODO: Check if try/catch here is necassary
+                    // or is it picked up by the promisese callback wrapper
+                    logger.debug('(Waiting for) decrypt secret "session_key"');
 
+                    let sessionKey = vault.secrets.find(({ key }) => {
+                        return key === "session_key";
+                    });
 
-            console.log("SEESION_KEY=", SESSION_KEY);
-            console.log("SESSION_ID=", SESSION_ID);
+                    if (sessionKey.value === null) {
 
-            let iface = device.interfaces.find(({ settings: { port } }) => {
-                return port === 8000;
-            });
+                        let eventHandler = ({ key }) => {
+                            if (key === "session_key") {
 
-            handshake(iface, (ws) => {
+                                changes.off("changed", eventHandler);
+                                resolve(sessionKey.decrypt());
 
-                console.log("Handshake complete");
-                console.log("Setup command hanlder")
-
-                endpoint.commands.forEach((command) => {
-                    command.setHandler((cmd, iface, params, done) => {
-
-                        let request = {
-                            "method": "POST",
-                            "body": {
-                                "plugin": "RemoteControl",
-                                "param1": `uuid:${UUID}`,
-                                "param2": "Click",
-                                "param3": cmd.payload,
-                                "param4": false,
-                                "api": "SendRemoteKey",
-                                "version": "1.000"
                             }
                         };
 
-                        let aes = aesEncrypt(JSON.stringify(request));
-                        let body = [];
+                        changes.on("changed", eventHandler);
 
-                        for (let i = 0; i < aes.length; i++) {
-                            body.push(aes[i]);
-                        }
+                    } else {
 
-                        // WOHNZIMMER WRAPPER
-                        let wrapper = {
-                            "name": "callCommon",
-                            "args": [{
-                                "Session_Id": +SESSION_ID,
-                                "body": `[${body.join(", ")}]`
-                            }]
+                        resolve(sessionKey.decrypt());
+
+                    }
+
+                }).then((value) => {
+                    logger.debug(`Vault secret "session_key" decrypted`);
+                    return value;
+                }),
+
+                new Promise((resolve) => {
+
+                    // TODO: Check if try/catch here is necassary
+                    // or is it picked up by the promisese callback wrapper
+                    logger.debug('(Waiting for) decrypt secret "session_id"');
+
+                    let sessionId = vault.secrets.find(({ key }) => {
+                        return key === "session_id";
+                    });
+
+                    if (sessionId.value === null) {
+
+                        let eventHandler = ({ key }) => {
+                            if (key === "session_id") {
+
+                                changes.off("changed", eventHandler);
+                                resolve(sessionId.decrypt());
+
+                            }
                         };
 
-                        ws.send(`5::/com.samsung.companion:${JSON.stringify(wrapper)}`);
-                        done(null, true)
+                        changes.on("changed", eventHandler);
 
-                    });
+                    } else {
+
+                        resolve(sessionId.decrypt());
+
+                    }
+
+                }).then((value) => {
+                    logger.debug(`Vault secret "session_id" decrypted`);
+                    return value;
+                })
+
+            ]).then(([SESSION_KEY, SESSION_ID]) => {
+
+                console.log(`SEESION_KEY=${SESSION_KEY}`);
+                console.log(`SESSION_ID=${SESSION_ID}`);
+
+                const aesEncrypt = ((val, algo = "aes-128-ecb") => {
+                    let cipher = crypto.createCipheriv(algo, Buffer.from(SESSION_KEY, 'hex'), null);
+                    return Buffer.concat([cipher.update(val, 'utf8'), cipher.final()]);
                 });
+
+                let iface = device.interfaces.find(({ settings: { port } }) => {
+                    return port === 8000;
+                });
+
+                handshake(iface, (ws) => {
+
+                    console.log("Handshake complete");
+                    console.log("Setup command hanlder")
+
+                    endpoint.commands.forEach((command) => {
+                        command.setHandler((cmd, iface, params, done) => {
+
+                            let request = {
+                                "method": "POST",
+                                "body": {
+                                    "plugin": "RemoteControl",
+                                    "param1": `uuid:${UUID}`,
+                                    "param2": "Click",
+                                    "param3": cmd.payload,
+                                    "param4": false,
+                                    "api": "SendRemoteKey",
+                                    "version": "1.000"
+                                }
+                            };
+
+                            let aes = aesEncrypt(JSON.stringify(request));
+                            let body = [];
+
+                            for (let i = 0; i < aes.length; i++) {
+                                body.push(aes[i]);
+                            }
+
+                            // WOHNZIMMER WRAPPER
+                            let wrapper = {
+                                "name": "callCommon",
+                                "args": [{
+                                    "Session_Id": +SESSION_ID,
+                                    "body": `[${body.join(", ")}]`
+                                }]
+                            };
+
+                            ws.send(`5::/com.samsung.companion:${JSON.stringify(wrapper)}`, (err) => {
+                                done(err, true);
+                            });
+
+
+                        });
+                    });
+
+                });
+
+            }).catch((err) => {
+
+                console.log("Error", err);
+                logger.error(err, "Could not setup crypto stuff/endpoint handling");
 
             });
 
-        })
+
+        }, (filter) => {
+
+            logger.warn(`No secrets vault found device/endpoint ${device._id}/${endpoint._id} - (${device.name}/${endpoint.name})`, filter);
+
+        });
 
     });
-
-
-
 
 };

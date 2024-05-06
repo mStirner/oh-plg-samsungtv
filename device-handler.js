@@ -9,20 +9,25 @@ module.exports = (logger, [
 
 
     C_DEVICES.found({
-        meta: {
-            manufacturer: "samsung",
-            model: "UE60J6289"
-        }
+        labels: [
+            "tv=true",
+            "manufacturer=samsung",
+            "ws-auth=true"
+        ]
     }, (device) => {
 
+        console.log("Device ound", device.name)
+
         eph(logger, [
-            C_DEVICES,
+            device,
             C_ENDPOINTS,
             C_VAULT
         ]);
 
     }, async (query) => {
         try {
+
+            console.log("add device", query)
 
             let device = await C_DEVICES.add({
                 ...query,
@@ -67,15 +72,23 @@ module.exports = (logger, [
             });
 
             let vault = await C_VAULT.add({
-                identifier: endpoint._id,
                 name: `${endpoint.name} (device=${device._id})`,
+                identifier: device._id,
                 secrets: [{
                     key: "session_id",
-                    name: "SmartView Session ID"
+                    name: "SmartView Session ID",
+                    description: "Session ID obtained via 'samtvcli' pairing"
                 }, {
                     key: "session_key",
-                    name: "SmartView Session Key"
+                    name: "SmartView Session Key",
+                    description: "Session Key obtained via 'samtvcli' pairing"
                 }],
+                labels: [
+                    `endpoint=${endpoint._id}`,
+                    `device=${device._id}`,
+                    "samsung=true",
+                    "tv=true"
+                ]
             });
 
             logger.info("Device stack added", device, endpoint, vault);
